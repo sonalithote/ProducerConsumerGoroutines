@@ -1,25 +1,47 @@
 package worker
 
 import (
+	"context"
 	"testing"
+	"time"
 )
 
-func TestProducer(t *testing.T) {
-	bufferSize := 5
-	ch := make(chan int, bufferSize)
-	itemsPerProducer := 10
+func TestProducer_NormalCompletion(t *testing.T) {
+	ch := make(chan int, 5)
+	ctx := context.Background()
 
 	go func() {
-		defer close(ch)
-		Producer(1, ch, itemsPerProducer)
+		Producer(ctx, 1, ch, 3)
+		close(ch)
 	}()
 
-	producedItems := []int{}
+	var produced []int
 	for item := range ch {
-		producedItems = append(producedItems, item)
+		produced = append(produced, item)
 	}
 
-	if len(producedItems) != itemsPerProducer {
-		t.Errorf("Expected %d items, but got %d", itemsPerProducer, len(producedItems))
+	if len(produced) != 3 {
+		t.Errorf("Expected 3 items, got %d", len(produced))
+	}
+}
+
+func TestProducer_Cancellation(t *testing.T) {
+	ch := make(chan int, 5)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		Producer(ctx, 1, ch, 10)
+		close(ch)
+	}()
+
+	time.Sleep(150 * time.Millisecond) // Let it produce a few items
+	cancel()                           // Cancel context
+
+	count := 0
+	for range ch {
+		count++
+	}
+	if count == 0 {
+		t.Error("Producer did not produce any items before cancellation")
 	}
 }

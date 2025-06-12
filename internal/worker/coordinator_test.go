@@ -1,16 +1,34 @@
 package worker
 
 import (
+	"context"
 	"testing"
+	"time"
 )
 
-func TestRunProducerConsumer(t *testing.T) {
+func TestRunProducerConsumer_NormalCompletion(t *testing.T) {
+	ctx := context.Background()
 	bufferSize := 5
-	totalItems := 20
-	numProducers := 3
+	totalItems := 8
+	numProducers := 2
 	numConsumers := 2
 
-	RunProducerConsumer(bufferSize, totalItems, numProducers, numConsumers)
+	RunProducerConsumer(ctx, bufferSize, totalItems, numProducers, numConsumers)
+	// If no deadlock or panic, test passes
+}
 
-	t.Log("Integration test passed if no deadlocks or errors occurred.")
+func TestRunProducerConsumer_Cancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	bufferSize := 5
+	totalItems := 100
+	numProducers := 2
+	numConsumers := 2
+
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		cancel()
+	}()
+
+	RunProducerConsumer(ctx, bufferSize, totalItems, numProducers, numConsumers)
+	// Should exit gracefully on cancellation
 }
